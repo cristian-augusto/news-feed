@@ -1,20 +1,68 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Appearance } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+
+import { getData, storeData } from './config/asyncStorage';
+import { ThemeContext } from './contexts/ThemeContext';
+import RootStack from './navigators/RootStack';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+
+    const [theme, setTheme] = useState({mode: 'light'});
+
+    const updateTheme = (newTheme) => {
+        let mode;
+
+        if(!newTheme) {
+            mode = theme.mode === 'dark' ? 'light' : 'dark';
+            newTheme = {mode, system: false};
+        }else{
+            if(newTheme.system){
+                const systemColorScheme =  Appearance.getColorScheme();
+                mode = systemColorScheme;
+
+                newTheme = {...newTheme, mode};
+            }else{
+                newTheme = {...newTheme, system: false};
+            }
+        }
+
+        setTheme(newTheme);
+        storeData('newsFeedTheme', newTheme);
+
+    };
+
+    const fetchStoreTheme = async () => {
+        try{
+            const themeData = await getData('newsFeedTheme');
+
+            if(themeData){
+                updateTheme(themeData);
+            }
+
+        }catch({message}){
+            Alert.alert(message);
+        }finally{
+            setTimeout(() =>  SplashScreen.hideAsync(), 1000);
+        }
+    };
+
+    Appearance.addChangeListener(({colorScheme}) => {
+        if(theme.system) {
+            updateTheme({system: true, mode: colorScheme});
+        }
+    });
+
+    useEffect(() => {
+        fetchStoreTheme();
+    },[]);
+
+    return(
+        <ThemeContext.Provider value={{theme, updateTheme}}>
+            <RootStack />
+        </ThemeContext.Provider>
+    );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
